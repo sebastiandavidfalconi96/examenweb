@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task List</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+<header>
+    <h1>Bienvenido a nuestra Lista de Tareas</h1>
+    <p>Administra tus tareas de manera eficiente.</p>
+</header>
+
+<div class="container">
+    <div id="taskList"></div>
+    <div id="createTask">
+        <h2>Crear Nueva Tarea</h2>
+        <form onsubmit="event.preventDefault(); createTask()">
+            <label for="taskName">Nombre:</label>
+            <input type="text" id="taskName" required><br>
+            <label for="taskDescription">Descripción:</label>
+            <input type="text" id="taskDescription" required><br>
+            <label for="taskDate">Fecha:</label>
+            <input type="date" id="taskDate" required><br>
+            <label for="taskStatus">Estado:</label>
+            <input type="text" id="taskStatus" required><br>
+            <button type="submit">Crear Tarea</button>
+        </form>
+    </div>
+    <div id="popupBackground" style="display: none;">
+        <div id="editTaskPopup">
+            <h2>Editar Tarea</h2>
+            <form onsubmit="event.preventDefault(); updateTask()">
+                <input type="hidden" id="editTaskId">
+                <label for="editTaskName">Nombre:</label>
+                <input type="text" id="editTaskName" required><br>
+                <label for="editTaskDescription">Descripción:</label>
+                <input type="text" id="editTaskDescription" required><br>
+                <label for="editTaskDate">Fecha:</label>
+                <input type="date" id="editTaskDate" required><br>
+                <label for="editTaskStatus">Estado:</label>
+                <input type="text" id="editTaskStatus" required><br>
+                <button type="submit">Guardar Cambios</button>
+                <button type="button" onclick="closePopup()">Cancelar</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let editingTaskId = null;
+    const taskListDiv = document.getElementById('taskList');
+
+    async function fetchTasks() {
+        const response = await fetch('/api/v1/tasks'); // Cambia la URL según tu configuración
+        const data = await response.json();
+        return data;
+    }
+
+    async function createTask() {
+        const taskName = document.getElementById('taskName').value;
+        const taskDescription = document.getElementById('taskDescription').value;
+        const taskDate = document.getElementById('taskDate').value;
+        const taskStatus = document.getElementById('taskStatus').value;
+
+        const response = await fetch('/api/v1/tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nombre: taskName,
+                descripcion: taskDescription,
+                fecha: taskDate,
+                estado: taskStatus
+            })
+        });
+
+        const newTask = await response.json();
+        alert(`Tarea "${newTask.nombre}" creada`);
+        displayTasks();
+        clearForm();
+    }
+
+    async function displayTasks() {
+        taskListDiv.innerHTML = '';
+        const tasks = await fetchTasks();
+
+        if (tasks.length === 0) {
+            taskListDiv.innerHTML = '<p>No hay tareas disponibles.</p>';
+            return;
+        }
+
+        tasks.forEach(task => {
+            const taskDiv = document.createElement('div');
+            taskDiv.classList.add('task-card');
+            taskDiv.innerHTML = `
+                <h2>${task.nombre}</h2>
+                <p>Descripción: ${task.descripcion}</p>
+                <p>Fecha: ${task.fecha}</p>
+                <p>Estado: ${task.estado}</p>
+                <div class="task-actions">
+                    <button onclick="editTask(${task.id})">Editar</button>
+                    <button onclick="deleteTask(${task.id})">Eliminar</button>
+                </div>
+            `;
+            taskListDiv.appendChild(taskDiv);
+        });
+    }
+
+    async function editTask(taskId) {
+        editingTaskId = taskId;
+        const task = await fetch(`/api/v1/tasks/${taskId}`).then(response => response.json());
+
+        document.getElementById('editTaskId').value = task.id;
+        document.getElementById('editTaskName').value = task.nombre;
+        document.getElementById('editTaskDescription').value = task.descripcion;
+        document.getElementById('editTaskDate').value = task.fecha;
+        document.getElementById('editTaskStatus').value = task.estado;
+
+        const popupBackground = document.getElementById('popupBackground');
+        popupBackground.style.display = 'block';
+    }
+
+    async function updateTask() {
+        const editedTaskId = document.getElementById('editTaskId').value;
+        const editedTaskName = document.getElementById('editTaskName').value;
+        const editedTaskDescription = document.getElementById('editTaskDescription').value;
+        const editedTaskDate = document.getElementById('editTaskDate').value;
+        const editedTaskStatus = document.getElementById('editTaskStatus').value;
+
+        const response = await fetch(`/api/v1/tasks/${editedTaskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nombre: editedTaskName,
+                descripcion: editedTaskDescription,
+                fecha: editedTaskDate,
+                estado: editedTaskStatus
+            })
+        });
+
+        if (response.status === 200) {
+            alert('Tarea actualizada exitosamente');
+            displayTasks();
+            closePopup();
+        } else {
+            alert('Error al actualizar la tarea');
+        }
+    }
+
+    async function deleteTask(taskId) {
+        const response = await fetch(`/api/v1/tasks/${taskId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.status === 200) {
+            alert('Tarea eliminada exitosamente');
+            displayTasks();
+        } else {
+            alert('Error al eliminar la tarea');
+        }
+    }
+
+    function closePopup() {
+        const popupBackground = document.getElementById('popupBackground');
+        popupBackground.style.display = 'none';
+    }
+
+    function clearForm() {
+        document.getElementById('taskName').value = '';
+        document.getElementById('taskDescription').value = '';
+        document.getElementById('taskDate').value = '';
+        document.getElementById('taskStatus').value = '';
+    }
+
+    displayTasks();
+</script>
+</body>
+</html>
